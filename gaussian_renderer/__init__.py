@@ -117,12 +117,21 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
     # time3 = get_time()
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+    # seed_value=42
+    # torch.manual_seed(seed_value)
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed(seed_value)
+    #     torch.cuda.manual_seed_all(seed_value)
     rendered_image, radii, depth = rasterizer(
         means3D = means3D_final,
         means2D = means2D,
         shs = shs_final,
+        #colors_precomp = torch.rand_like(colors_precomp)*2.1267,
         colors_precomp = colors_precomp,
         opacities = opacity,
+        # scales = torch.ones_like(scales_final)*0.01,
         scales = scales_final,
         rotations = rotations_final,
         cov3D_precomp = cov3D_precomp)

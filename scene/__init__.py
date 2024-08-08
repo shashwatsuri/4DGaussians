@@ -62,6 +62,7 @@ class Scene:
             scene_info = sceneLoadTypeCallbacks["MultipleView"](args.source_path)
             dataset_type="MultipleView"
         else:
+
             assert False, "Could not recognize scene type!"
         self.maxtime = scene_info.maxtime
         self.dataset_type = dataset_type
