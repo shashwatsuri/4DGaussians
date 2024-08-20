@@ -131,8 +131,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         #colors_precomp = torch.rand_like(colors_precomp)*2.1267,
         colors_precomp = colors_precomp,
         opacities = opacity,
-        # scales = torch.ones_like(scales_final)*0.01,
-        scales = scales_final,
+        scales = torch.ones_like(scales_final)*0.01,
+        # scales = scales_final,
         rotations = rotations_final,
         cov3D_precomp = cov3D_precomp)
     # time4 = get_time()
