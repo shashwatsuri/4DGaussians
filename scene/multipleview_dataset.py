@@ -4,9 +4,11 @@ from torch.utils.data import Dataset
 from PIL import Image
 from utils.graphics_utils import focal2fov
 from scene.colmap_loader import qvec2rotmat
-from scene.dataset_readers import CameraInfo
+from scene.dataset_readers import CameraInfo,readColmapCameras
 from scene.neural_3D_dataset_NDC import get_spiral
-from torchvision import transforms as T
+from torchvision import transforms as Tr
+from utils.general_utils import PILtoTorch
+
 
 
 class multipleview_dataset(Dataset):
@@ -17,15 +19,57 @@ class multipleview_dataset(Dataset):
         cam_folder,
         split
     ):
-        self.focal = [cam_intrinsics[1].params[0], cam_intrinsics[1].params[0]]
-        height=cam_intrinsics[1].height
-        width=cam_intrinsics[1].width
+
+
+        key = 1
+        self.focal = [cam_intrinsics[key].params[0], cam_intrinsics[key].params[0]]
+        height=cam_intrinsics[key].height
+        width=cam_intrinsics[key].width
         self.FovY = focal2fov(self.focal[0], height)
         self.FovX = focal2fov(self.focal[0], width)
-        self.transform = T.ToTensor()
+        self.transform = Tr.ToTensor()
         self.image_paths, self.image_poses, self.image_times= self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
         if split=="test":
-            self.video_cam_infos=self.get_video_cam_infos(cam_folder)
+            cam_extrinsics = {key:cam_extrinsics[key]}
+            self.image_paths, self.image_poses, self.image_times= self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
+
+            # self.video_cam_infos=self.get_video_cam_infos(cam_folder)
+            cam_infos = []
+            extr = cam_extrinsics[key]
+            intr = cam_intrinsics[extr.camera_id]
+            height = intr.height
+            width = intr.width
+            uid = intr.id
+            R = np.transpose(qvec2rotmat(extr.qvec))
+            T = np.array(extr.tvec)
+            if intr.model in ["SIMPLE_PINHOLE", "SIMPLE_RADIAL"]:
+                focal_length_x = intr.params[0]
+                FovY = focal2fov(focal_length_x, height)
+                FovX = focal2fov(focal_length_x, width)
+            elif intr.model=="PINHOLE":
+                focal_length_x = intr.params[0]
+                focal_length_y = intr.params[1]
+                FovY = focal2fov(focal_length_y, height)
+                FovX = focal2fov(focal_length_x, width)
+            elif intr.model == "OPENCV":
+                focal_length_x = intr.params[0]
+                focal_length_y = intr.params[1]
+                FovY = focal2fov(focal_length_y, height)
+                FovX = focal2fov(focal_length_x, width)
+            else:
+                assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
+            for i in range(len(self.image_paths)):
+                image_path = self.image_paths[i]
+                image_name = os.path.basename(image_path).split(".")[0]
+                image = Image.open(image_path)
+                image = PILtoTorch(image,None)
+                time = self.image_times[i]
+                cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                                    image_path=image_path, image_name=image_name, width=width, height=height,
+                                    time = time, mask=None) # default by monocular settings.
+                cam_infos.append(cam_info)
+            self.video_cam_infos = cam_infos
+
         
     
     def load_images_path(self, cam_folder, cam_extrinsics,cam_intrinsics,split):
@@ -43,8 +87,8 @@ class multipleview_dataset(Dataset):
             images_folder=os.path.join(cam_folder,"cam"+number.zfill(2))
 
             image_range=range(image_length)
-            if split=="test":
-                image_range = [image_range[0],image_range[int(image_length/3)],image_range[int(image_length*2/3)]]
+            # if split=="test":
+            #     image_range = [image_range[0],image_range[int(image_length/3)],image_range[int(image_length*2/3)]]
 
             for i in image_range:    
                 num=i+1
@@ -63,11 +107,13 @@ class multipleview_dataset(Dataset):
         N_views = 300
         val_poses = get_spiral(poses, near_fars, N_views=N_views)
 
+
         cameras = []
         len_poses = len(val_poses)
         times = [i/len_poses for i in range(len_poses)]
         image = Image.open(self.image_paths[0])
         image = self.transform(image)
+
 
         for idx, p in enumerate(val_poses):
             image_path = None
