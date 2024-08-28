@@ -105,7 +105,7 @@ def render_path_spiral(c2w, up, rads, focal, zdelta, zrate, N_rots=2, N=120):
             * rads,
         )
         z = normalize(c - np.dot(c2w[:3, :4], np.array([0, 0, -focal, 1.0])))
-        render_poses.append(viewmatrix(z*2.0, up, c))
+        render_poses.append(viewmatrix(z, up, c))
     return render_poses
 
 
@@ -198,7 +198,7 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     focal = 1.0 / ((1.0 - dt) / close_depth + dt / inf_depth)
 
     # Get radii for spiral path
-    zdelta = near_fars.min() * 2.0
+    zdelta = near_fars.min() * 0.2
     tt = c2ws_all[:, :3, 3]
     rads = np.percentile(np.abs(tt), 90, 0) * rads_scale
     render_poses = render_path_spiral(
