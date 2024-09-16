@@ -11,7 +11,8 @@
 
 import torch
 import math
-from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianRasterizer
+# from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianRasterizer
+from diff_gauss import GaussianRasterizationSettings,GaussianRasterizer
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 from time import time as get_time
@@ -124,23 +125,25 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # if torch.cuda.is_available():
     #     torch.cuda.manual_seed(seed_value)
     #     torch.cuda.manual_seed_all(seed_value)
-    rendered_image, radii, depth = rasterizer(
+    rendered_image, depth, norm, rendered_alpha, radii, extra = rasterizer(
         means3D = means3D_final,
         means2D = means2D,
         shs = shs_final,
         #colors_precomp = torch.rand_like(colors_precomp)*2.1267,
         colors_precomp = colors_precomp,
         opacities = opacity,
-        scales = torch.ones_like(scales_final)*0.01,
-        # scales = scales_final,
+        #scales = torch.ones_like(scales_final)*0.01,
+        scales = scales_final,
         rotations = rotations_final,
-        cov3D_precomp = cov3D_precomp)
+        #cov3D_precomp = cov3D_precomp
+    )
     # time4 = get_time()
     # print("rasterization:",time4-time3)
     # breakpoint()
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
-    return {"render": rendered_image,
+    return {#"render": rendered_image,
+            "render": (norm +1.0)*0.5,
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
             "radii": radii,
